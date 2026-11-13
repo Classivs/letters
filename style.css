@@ -180,3 +180,28 @@ input, textarea, select { font: inherit; user-select: text; -webkit-user-select:
 .attempt .acts button { flex: 1; }
 .chk { display: flex; gap: 8px; flex-wrap: wrap; }
 .chk label { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; background: #efe6d2; font-size: 20px; font-weight: 700; }
+
+/* Letter page: fits one screen in any orientation */
+.screen.lw-page { height: 100vh; height: 100dvh; padding-bottom: max(16px, env(safe-area-inset-bottom)); gap: 12px; overflow: hidden; }
+.lw-top { display: flex; align-items: center; gap: 12px; }
+.lw-top .back { flex: 0 0 auto; }
+.lw-model { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.lw-model svg { height: min(22vh, 180px); width: auto; }
+.lw-top .bigbtn { flex: 0 0 auto; height: 80px; min-width: 80px; font-size: 36px; padding: 0 18px; }
+.lw-page .draw-box { flex: 1; min-height: 200px; }
+.lw-page .draw-tools .bigbtn { height: 80px; font-size: 36px; }
+.saved-stamp { position: absolute; right: 16px; top: 16px; width: 72px; height: 72px; border-radius: 50%;
+  background: var(--green); color: #fff; font-size: 42px; display: grid; place-items: center;
+  transform: scale(0); pointer-events: none; transition: transform .35s cubic-bezier(.3,1.6,.5,1); }
+.draw-box.is-saved .saved-stamp { transform: scale(1); }
+.draw-box.is-saved { outline: 6px solid var(--green); }
+@media (max-width: 600px) {
+  .lw-top { gap: 8px; }
+  .lw-top .bigbtn small { display: none; }
+  .lw-top .bigbtn { height: 72px; min-width: 72px; padding: 0 12px; font-size: 32px; }
+  .lw-model { min-width: 110px; }
+  .lw-model svg { height: 150px; width: 125px; }
+  .lw-page .draw-tools { gap: 8px; flex-wrap: nowrap; }
+  .lw-page .draw-tools .bigbtn { flex: 1; min-width: 0; height: 72px; padding: 0 10px; font-size: 28px; gap: 6px; }
+  .lw-page .draw-tools .bigbtn small { font-size: 18px; }
+}

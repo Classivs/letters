@@ -1,5 +1,5 @@
 /* Offline support: keeps the app's own files cached; refreshes them when online. */
-const CACHE = 'g-letters-v1';
+const CACHE = 'g-letters-v3';
 const FILES = ['./', 'index.html', 'style.css', 'manifest.json', 'js/core.js', 'js/letters.js', 'js/sprites.js',
   'js/games.js', 'js/parent.js', 'js/main.js', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });

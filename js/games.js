@@ -105,7 +105,12 @@ function SoundHunt() {
   const garden = gardenStrip();
   const area = h('div', { class: 'choices' });
   let target = null;
-  const listen = async () => { await playPrompt('find'); await sleep(150); await playPhoneme(target); };
+  const listen = async () => {
+    const id = newSeq();
+    await playPrompt('find'); if (!live(id)) return;
+    await sleep(150); if (!live(id)) return;
+    await playPhoneme(target);
+  };
   const row = h('div', { class: 'prompt-row' }, h('button', { class: 'bigbtn go', onclick: listen }, '🔊'));
   scr.append(garden, row, area);
 
@@ -123,17 +128,18 @@ function SoundHunt() {
     for (const item of shuffle([right, ...wrongs])) {
       area.append(choiceEl(item, async el => {
         if (done || el.classList.contains('wrong')) return;
+        const id = newSeq();
         if (item === right) {
           done = true;
           el.classList.add('right');
           await playWord(item.word, item.audio);
           growFlower(garden);
-          await praise();
+          if (live(id)) await praise();
           afterCorrect(round);
         } else {
           el.classList.add('wrong');
-          await playWord(item.word, item.audio);
-          await playPrompt('again');
+          await playWord(item.word, item.audio); if (!live(id)) return;
+          await playPrompt('again'); if (!live(id)) return;
           await playPhoneme(target);
         }
       }));
@@ -153,11 +159,15 @@ function RobotTalk() {
   const area = h('div', { class: 'choices' });
   let word = null;
   const say = async () => {
+    const id = newSeq();
     await playPrompt('robot');
     robot.classList.add('talk');
-    for (const ch of word.word.toLowerCase()) { await playPhoneme(ch); await sleep(380); }
+    for (const ch of word.word.toLowerCase()) {
+      if (!live(id)) break;
+      await playPhoneme(ch); await sleep(380);
+    }
     robot.classList.remove('talk');
-    await playPrompt('robotq');
+    if (live(id)) await playPrompt('robotq');
   };
   scr.append(garden, robot, h('div', { class: 'prompt-row' }, h('button', { class: 'bigbtn go', onclick: say }, '🔊')), area);
 
@@ -171,17 +181,18 @@ function RobotTalk() {
     for (const item of shuffle([word, ...wrongs])) {
       area.append(choiceEl(item, async el => {
         if (done || el.classList.contains('wrong')) return;
+        const id = newSeq();
         if (item === word) {
           done = true;
           el.classList.add('right');
           await playWord(item.word, item.audio);
           growFlower(garden);
-          await praise();
+          if (live(id)) await praise();
           afterCorrect(round);
         } else {
           el.classList.add('wrong');
-          await playWord(item.word, item.audio);
-          await playPrompt('again');
+          await playWord(item.word, item.audio); if (!live(id)) return;
+          await playPrompt('again'); if (!live(id)) return;
           await say();
         }
       }));
@@ -212,42 +223,53 @@ function LetterWorkshop() {
 }
 
 function LetterPage(l) {
-  const L = LETTERS[l];
-  const model = h('div', { class: 'tile-letter', html: letterSVG(l, { lines: true }) });
-  const watch = async () => { await animateLetter(model, l); };
+  const model = h('div', { class: 'lw-model', html: letterSVG(l, { lines: true }) });
+  const watch = async () => { const id = newSeq(); await animateLetter(model, l); return id; };
   const box = h('div', { class: 'draw-box' });
   const bg = h('canvas'), ink = h('canvas');
-  box.append(bg, ink);
+  const stamp = h('div', { class: 'saved-stamp' }, '✔');
+  box.append(bg, ink, stamp);
   const pad = makePad(box, bg, ink, l);
-  const forDad = h('div', { class: 'draw-tools' });
+  const tools = h('div', { class: 'draw-tools' });
 
-  const done = async () => {
-    if (!pad.hasInk()) return;
+  const writingTools = () => {
+    tools.innerHTML = '';
+    tools.append(
+      h('button', { class: 'bigbtn', onclick: () => pad.clear(), 'aria-label': 'Clear' }, '🧽', h('small', {}, 'Clear')),
+      h('button', { class: 'bigbtn go', onclick: done, 'aria-label': 'Done' }, '✅', h('small', {}, 'Done')));
+  };
+  const finish = () => { pad.clear(); box.classList.remove('is-saved'); writingTools(); };
+  async function done() {
+    if (!pad.hasInk()) { toast('Write the letter first!'); return; }
     const png = await pad.snapshot();
     const id = uid();
     await Store.blob.set('att:' + id, png);
     const att = { id, letter: l, date: today(), status: 'pending' };
     S.attempts.unshift(att); S.attempts = S.attempts.slice(0, 120); save('attempts');
-    forDad.innerHTML = '';
-    forDad.append(
-      h('button', { class: 'bigbtn go', onclick: async () => { judge(att, 'good'); forDad.innerHTML = ''; pad.clear(); await praise(); } }, '👍', h('small', {}, S.settings.parentName)),
-      h('button', { class: 'bigbtn', onclick: () => { judge(att, 'again'); forDad.innerHTML = ''; pad.clear(); playPrompt('write'); } }, '🔁', h('small', {}, 'Again')),
-      h('button', { class: 'bigbtn', onclick: () => { forDad.innerHTML = ''; pad.clear(); toast('Saved for later'); } }, '⏳'));
-  };
+    // Show that it was kept, then hand over to the grown-up.
+    box.classList.add('is-saved');
+    tools.innerHTML = '';
+    tools.append(
+      h('button', { class: 'bigbtn go', onclick: async () => { judge(att, 'good'); finish(); await praise(); } }, '👍', h('small', {}, 'Good')),
+      h('button', { class: 'bigbtn', onclick: () => { judge(att, 'again'); finish(); playPrompt('write'); } }, '🔁', h('small', {}, 'Try again')),
+      h('button', { class: 'bigbtn', onclick: () => { finish(); toast(`Saved for ${S.settings.parentName} to see later`); } }, '⏳', h('small', {}, 'Later')));
+  }
+  writingTools();
 
-  const scr = h('div', { class: 'screen' },
-    topbar('', () => go(LetterWorkshop)),
-    h('div', { class: 'lw-stage' },
-      h('div', { class: 'model-box' }, model,
-        h('div', { class: 'draw-tools' },
-          h('button', { class: 'bigbtn go', onclick: () => playPhoneme(l), 'aria-label': 'Hear the sound' }, '🔊'),
-          h('button', { class: 'bigbtn blue', onclick: watch, 'aria-label': 'Watch' }, '▶'))),
-      h('div', { style: 'display:flex;flex-direction:column;gap:14px' }, box,
-        h('div', { class: 'draw-tools' },
-          h('button', { class: 'bigbtn', onclick: () => pad.clear(), 'aria-label': 'Clear' }, '🧽'),
-          h('button', { class: 'bigbtn go', onclick: done, 'aria-label': 'Done' }, '✅')),
-        forDad)));
-  setTimeout(async () => { pad.layout(); await playPhoneme(l); await watch(); await playPrompt('write'); }, 200);
+  const scr = h('div', { class: 'screen lw-page' },
+    h('div', { class: 'lw-top' },
+      h('button', { class: 'back', onclick: () => { Audio2.stop(); go(LetterWorkshop); }, 'aria-label': 'Back' }, '⬅'),
+      model,
+      h('button', { class: 'bigbtn go', onclick: () => { newSeq(); playPhoneme(l); }, 'aria-label': 'Hear the sound' }, '🔊'),
+      h('button', { class: 'bigbtn blue', onclick: watch, 'aria-label': 'Watch' }, '▶', h('small', {}, 'Watch'))),
+    box, tools);
+  setTimeout(async () => {
+    pad.layout();
+    const id = newSeq();
+    await playPhoneme(l); if (!live(id)) return;
+    await animateLetter(model, l); if (!live(id)) return;
+    await playPrompt('write');
+  }, 200);
   return scr;
 }
 function judge(att, status) {
@@ -329,7 +351,12 @@ function SoundMatch() {
   const scr = h('div', { class: 'screen' }, topbar('Sound Match', () => go(LetterWorkshop)));
   const area = h('div', { class: 'choices' });
   let target = null;
-  const listen = async () => { await playPrompt('letter'); await sleep(150); await playPhoneme(target); };
+  const listen = async () => {
+    const id = newSeq();
+    await playPrompt('letter'); if (!live(id)) return;
+    await sleep(150); if (!live(id)) return;
+    await playPhoneme(target);
+  };
   scr.append(h('div', { class: 'prompt-row' }, h('button', { class: 'bigbtn go', onclick: listen }, '🔊')), area);
   const open = S.settings.unlocked.filter(l => ORDER.includes(l));
   if (open.length < 2) {
@@ -352,18 +379,19 @@ function SoundMatch() {
         const correct = l === target;
         const events = first ? recordLetterAnswer(target, correct) : [];
         first = false;
+        const id = newSeq();
         if (correct) {
           done = true;
           el.classList.add('right');
           await playPhoneme(target);
-          await praise();
+          if (live(id)) await praise();
           if (events.includes('hatch')) await showHatch(target);
           else if (events.includes('egg')) await showEgg(target);
           afterCorrect(round);
         } else {
           el.classList.add('wrong');
-          await playPhoneme(l);
-          await playPrompt('again');
+          await playPhoneme(l); if (!live(id)) return;
+          await playPrompt('again'); if (!live(id)) return;
           await playPhoneme(target);
         }
       });

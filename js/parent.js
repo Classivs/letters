@@ -19,7 +19,7 @@ function ParentPanel() {
 }
 
 /* One recordable clip: play, record/stop, delete. */
-function recRow(key, title, sub, fallback) {
+function recRow(key, title, sub, fallback, missingLabel = 'robot voice') {
   const row = h('div', { class: 'row' });
   const draw = async () => {
     const has = !!(await Store.blob.get(key));
@@ -28,7 +28,7 @@ function recRow(key, title, sub, fallback) {
     recBtn.addEventListener('click', () => record(key, recBtn, draw));
     row.append(...[
       h('div', { class: 'lbl' }, h('b', {}, title), sub && h('small', {}, sub)),
-      h('span', { class: 'badge ' + (has ? 'yes' : 'no') }, has ? 'your voice' : 'robot voice'),
+      h('span', { class: 'badge ' + (has ? 'yes' : 'no') }, has ? 'your voice' : missingLabel),
       h('button', { class: 'pbtn', onclick: async () => { if (!(await Audio2.playBlob(key))) await fallback(); } }, '▶ Play'),
       recBtn,
       has && h('button', { class: 'pbtn', onclick: async () => { await Store.blob.del(key); Audio2.invalidate(key); draw(); } }, '🗑')].filter(Boolean));
@@ -68,8 +68,8 @@ function panel(title, note, ...kids) {
 
 function VoiceTab(body) {
   body.append(panel('Letter sounds',
-    'Record these first; they matter most. Say the pure sound with no "uh" after it. The app trims the silence at the start and end automatically.',
-    ...ORDER.map(l => recRow('ph:' + l, `/${l}/`, PHONEMES[l].hint, () => speak(PHONEMES[l].tts, 0.7)))));
+    'Record these first; they matter most. The robot voice can\'t make these sounds, so until each is recorded the games show a reminder instead. Say the pure sound with no "uh" after it. The app trims the silence at the start and end automatically.',
+    ...ORDER.map(l => recRow('ph:' + l, `/${l}/`, PHONEMES[l].hint, () => toast('Not recorded yet'), 'not recorded'))));
   const P = promptClips();
   body.append(panel('Things the app says', 'Until you record them, the tablet\'s built-in voice says the words shown.',
     ...Object.entries(P).map(([k, v]) => recRow('pr:' + k, v.label, `"${v.tts}"`, () => speak(v.tts)))));

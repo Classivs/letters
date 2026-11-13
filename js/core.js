@@ -108,6 +108,7 @@ const Audio2 = (() => {
   const urlCache = new Map();
   let current = null;
 
+  let finish = null;
   async function playBlob(key) {
     const blob = await Store.blob.get(key);
     if (!blob) return false;
@@ -117,6 +118,7 @@ const Audio2 = (() => {
     const a = new Audio(url.u);
     current = a;
     await new Promise(res => {
+      finish = res;
       a.onended = res; a.onerror = res;
       a.play().catch(res);
       setTimeout(res, 8000);
@@ -126,10 +128,17 @@ const Audio2 = (() => {
   function invalidate(key) { const u = urlCache.get(key); if (u) { URL.revokeObjectURL(u.u); urlCache.delete(key); } }
   function stop() {
     if (current) { try { current.pause(); } catch (e) {} current = null; }
+    if (finish) { const f = finish; finish = null; f(); }
     try { speechSynthesis.cancel(); } catch (e) {}
   }
   return { playBlob, invalidate, stop };
 })();
+
+/* Only one spoken sequence at a time: starting a new one cancels the old one.
+   Each sequence checks live(id) between steps and quietly stops if it was replaced. */
+let playSeq = 0;
+function newSeq() { Audio2.stop(); return ++playSeq; }
+const live = id => id === playSeq;
 
 let voice = null;
 function pickVoice() {
@@ -180,7 +189,13 @@ function promptClips() {
     done: { label: 'Session is over', tts: `All done for today, ${c}! ${p} is proud of you.` },
   };
 }
-async function playPhoneme(l) { if (!(await Audio2.playBlob('ph:' + l))) await speak(PHONEMES[l].tts, 0.7); }
+/* Letter sounds have no robot fallback: text-to-speech can't say a pure /s/ or /i/
+   (it spells them out, or says the letter name), and a wrong sound is worse than none. */
+async function playPhoneme(l) {
+  if (await Audio2.playBlob('ph:' + l)) return;
+  toast(`🎙 The /${l}/ sound isn't recorded yet (parent panel → Voice)`);
+  await sleep(600);
+}
 async function playPrompt(k) { if (!(await Audio2.playBlob('pr:' + k))) await speak(promptClips()[k].tts); }
 async function playWord(word, key) {
   if (key && await Audio2.playBlob(key)) return;
